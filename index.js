@@ -1,7 +1,7 @@
 // depends
 var // external
     moment = require('moment'),
-    joi = require('joi'),
+    // joi = require('joi'),
     chalk = require('chalk'),
     fs = require('fs'),
     util = require('util'),
