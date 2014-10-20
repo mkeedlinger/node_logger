@@ -8,11 +8,11 @@ var // external
 
     env = process.env.NODE_ENV ? process.env.NODE_ENV[0].toLowerCase() : 'd';
 
-var gOptions = joi.object().keys({
-        logFile: joi.string(),
-        timeStamp: joi.boolean(),
-        prodOnlyLogFile: joi.boolean()
-    });
+// var gOptions = joi.object().keys({
+//         logFile: joi.string(),
+//         timeStamp: joi.boolean(),
+//         prodOnlyLogFile: joi.boolean()
+//     });
 
 logger = function () {
     if (env === 'd') {
