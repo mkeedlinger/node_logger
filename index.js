@@ -1,53 +1,69 @@
 // depends
 var // external
     moment = require('moment'),
-    // joi = require('joi'),
+    joi = require('joi'),
     chalk = require('chalk'),
     fs = require('fs'),
     util = require('util'),
 
-    env = process.env.NODE_ENV ? process.env.NODE_ENV[0].toLowerCase() : 'd';
+    env = process.env.NODE_ENV,
+    prod = env ? (env.toLowerCase() === 'production') : false;
 
-// var gOptions = joi.object().keys({
-//         logFile: joi.string(),
-//         timeStamp: joi.boolean(),
-//         prodOnlyLogFile: joi.boolean()
-//     });
 
-logger = function () {
-    if (env === 'd') {
-        sOut('yellow', 'debug')(arguments);
+var colors = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'gray'],
+    opt = joi.object().unknown(false).keys({
+        logFile: joi.string().default('app.log'),
+        devTime: joi.boolean().default(false),
+        devLogFile: joi.boolean().default(false),
+        prodLogLevel: joi.number().integer().min(1).max(4).default(2),
+        colors: joi.object().default({
+            debug: 'yellow',
+            warn: 'magenta',
+            info: 'cyan',
+            error: 'red'
+        }).keys({
+            debug: joi.string().default('yellow').valid(colors),
+            warn: joi.string().default('magenta').valid(colors),
+            info: joi.string().default('cyan').valid(colors),
+            error: joi.string().default('red').valid(colors)
+        }),
+        preText: joi.object().default({
+            debug: 'debug',
+            warn: 'warning',
+            info: 'info',
+            error: 'error'
+        }).keys({
+            debug: joi.string().default('debug'),
+            warn: joi.string().default('warning'),
+            info: joi.string().default('info'),
+            error: joi.string().default('error')
+        }),
+        prod: joi.boolean().default(prod)
+    });
+/*
+    levels = {
+        debug: 1,
+        info: 2,
+        warn: 3,
+        error: 4
+    };
+*/
+////
+// logger
+////
+module.exports = logger(opt.validate({}).value);
+module.exports.custom = function (opts) {
+    var valid = opt.validate(opts);
+    if (valid.error) {
+        console.log(chalk.red('You passed in bad options'));
+        throw valid.error;
     }
-}
-logger.log = logger;
-logger.warn = function () {
-    if (env === 'd') {
-        sOut('magenta', 'warning')(arguments);
-    } else if (env === 'p') {
-        var date = moment().format('YYYYMMMDDTHH:mm:ss.SSSZ');
-        sOut('red', 'warning', date)(arguments);
-        fOut('app.log', 'warning', date)(arguments);
-    }
-}
-logger.error = function () {
-    if (env === 'd') {
-        sOut('red', 'error', null, true)(arguments);
-    } else if (env === 'p') {
-        var date = moment().format('YYYYMMMDDTHH:mm:ss.SSSZ');
-        sOut('red', 'error', date, true)(arguments);
-        fOut('app.log', 'error', date)(arguments)
-    }
-}
-logger.info = function () {
-    if (env === 'd') {
-        sOut('cyan', 'error')(arguments);
-    } else if (env === 'p') {
-        var date = moment().format('YYYYMMMDDTHH:mm:ss.SSSZ');
-        sOut('cyan', 'info', date)(arguments);
-        fOut('app.log', 'info', date)(arguments)
-    }
-}
+    return logger(valid.value);
+};
 
+////
+// util
+////
 function sOut (color, text, date, error) {
     text = (('[' + chalk[color](text.toUpperCase()) + '] ')) + (date ? date + ' ' : '');
     return function (arg) {
@@ -64,4 +80,66 @@ function fOut (path, text, date) {
         fs.appendFile(path, util.format.apply(util, logMessage), function(){});
     }
 }
-module.exports = logger;
+function logger (op) {
+    var l = function () {
+        var date = fDate(),
+            preText = op.preText.debug,
+            color = op.colors.debug
+        if (!op.prod) {
+            sOut(op.colors.debug, op.preText.debug, op.devTime ? date : null)(arguments);
+            if (op.devLogFile) {
+                fOut(op.logFile, preText, date)(arguments);
+            }
+        } else if (op.prodLogLevel < 2) {
+            sOut(op.colors.debug, op.preText.debug, date)(arguments);
+            fOut(op.logFile, preText, date)(arguments);
+        }
+    };
+    l.log = l.debug = l;
+    l.info = function () {
+        var color = op.colors.info,
+            preText = op.preText.info,
+            date = fDate();
+        if (!op.prod) {
+            sOut(color, preText, op.devTime ? date : null)(arguments);
+            if (op.devLogFile) {
+                fOut(op.logFile, preText, date)(arguments);
+            }
+        } else if (op.prodLogLevel < 3) {
+            sOut(color, preText, date)(arguments);
+            fOut(op.logFile, preText, date)(arguments);
+        }
+    };
+    l.warn = function () {
+        var color = op.colors.warn,
+            preText = op.preText.warn,
+            date = fDate();
+        if (!op.prod) {
+            sOut(color, preText, op.devTime ? date : null)(arguments);
+            if (op.devLogFile) {
+                fOut(op.logFile, preText, date)(arguments);
+            }
+        } else if (op.prodLogLevel < 4) {
+            sOut(color, preText, date)(arguments);
+            fOut(op.logFile, preText, date)(arguments);
+        }
+    };
+    l.error = function () {
+        var color = op.colors.error,
+            preText = op.preText.error,
+            date = fDate();
+        if (!op.prod) {
+            sOut(color, preText, op.devTime ? date : null)(arguments);
+            if (op.devLogFile) {
+                fOut(op.logFile, preText, date)(arguments);
+            }
+        } else {
+            sOut(color, preText, date, true)(arguments);
+            fOut(op.logFile, preText, date)(arguments);
+        }
+    };
+    return l;
+}
+function fDate () {
+    return '[' + moment().format('YYYYMMMDDTHH:mm:ss.SSSZ') + ']';
+}
