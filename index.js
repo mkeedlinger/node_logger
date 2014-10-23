@@ -129,7 +129,7 @@ function logger (op) {
             preText = op.preText.error,
             date = fDate();
         if (!op.prod) {
-            sOut(color, preText, op.devTime ? date : null)(arguments);
+            sOut(color, preText, op.devTime ? date : null, true)(arguments);
             if (op.devLogFile) {
                 fOut(op.logFile, preText, date)(arguments);
             }
