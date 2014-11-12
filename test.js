@@ -1,5 +1,5 @@
 jot = require('./index');
-jot('one');
+jot.debug('what?')
 jot.info('two');
 jot.warn('three');
-jot.error('four');
+jot.error({we:232});
