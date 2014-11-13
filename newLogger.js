@@ -10,55 +10,66 @@ var moment = require('moment'),
     prod = env ? (env.toLowerCase() === 'production') : false;
 
 function Logger (opts) {
-    // if not run with the new keyword
     opts = joi.object().keys({
         prod: joi.boolean().default(prod)
     }).validate(opts || {}).value;
-    this.opts = opts;
-    this.levels = [];
-    this.routes = [];
-}
-util.inherits(Logger, events.EventEmitter);
-Logger.prototype.send = function(name) {
-    var that = this;
-    return function () {
-        var opts = {
-            args: arguments,
-            name: name,
-            time: new Date()
-        };
-        async.applyEach(this.routes, opts, function (er, re) {
-            if (er) {
-                that.emit('error', {
-                    error: er,
-                    when: opts
-                });
-            }
-        });
+
+    var logger = function () {
+        if (logger.routes.length) {
+            logger[logger.levels[0]].apply(logger, arguments);
+        }
+        return logger;
+    };
+    logger.opts = opts;
+    logger.levels = [];
+    logger.routes = [];
+    logger.send = function(name) {
+        var that = this;
+        return function () {
+            var opts = {
+                args: arguments,
+                name: name,
+                time: new Date()
+            };
+            async.applyEach(this.routes, opts, function (er, re) {
+                if (er) {
+                    that.emit('error', {
+                        error: er,
+                        when: opts
+                    });
+                }
+            });
+            return this;
+        }
+    };
+    logger.onError = function (fn) {
+        this.on('error', fn);
         return this;
     }
-};
-Logger.prototype.use = function(fn) {
-    this.routes.push(fn.bind(this));
-    return this;
-};
-Logger.prototype.add = function(name) {
-    this.levels.push(name);
-    this[name] = this.send(name);
-    return this;
-};
+    logger.use = function(fn) {
+        this.routes.push(fn.bind(this));
+        return this;
+    };
+    logger.add = function(name) {
+        this.levels.push(name);
+        this[name] = this.send(name);
+        return this;
+    };
+    logger.prototype = Object.create(events.EventEmitter.prototype);
+    logger.prototype = Object.create(someOther.prototype);
+    return logger;
+}
 
 // module
-module.exports = new Logger().add('banana').add('info').add('warn').add('error')
+module.exports = Logger().add('debug').add('info').add('warn').add('error')
     .use(stdout({
-        colors: ['yellow', 'cyan', 'magenta', 'red'],
-        timestamp: false
+        colors: ['yellow', 'cyan', 'magenta', 'red']
     }));
 
+module.exports('help?')
 module.exports.custom = function (opts) {
-    return new Logger(opts);
+    return Logger(opts);
 }
-module.exports.stdout = stdout;
 
 // middleware
 function stdout (opts) {
@@ -79,9 +90,9 @@ function stdout (opts) {
 
         if (opts.namePrepend) {
             if (color) {
-                name = '[' + chalk[color](name) + '] ';
+                name = '[' + chalk[color](name) + ']';
             } else {
-                name = '[' + name + '] ';
+                name = '[' + name + ']';
             }
         } else {
             name = '';
@@ -102,6 +113,7 @@ function stdout (opts) {
         console.log.apply(console, logMessage);
     }
 }
+module.exports.stdout = stdout;
 function fileOut (opts) {
     //
 }
