@@ -10,20 +10,39 @@ var moment = require('moment'),
     prod = env ? (env.toLowerCase() === 'production') : false;
 
 function Logger (opts) {
-    // if not run with the new keyword
+    if (!(this instanceof Logger)) {
+        return new Logger(opts);
+    }
+
+    // validates options
     opts = joi.object().keys({
-        prod: joi.boolean().default(prod)
+        dev: joi.boolean().default(!prod)
     }).validate(opts || {}).value;
-    this.opts = opts;
-    this.levels = [];
-    this.routes = [];
+
+    var logger = function () {
+        if (logger.levels.length) {
+            logger[logger.levels[0]].apply(logger, arguments);
+        }
+        return logger;
+    };
+    logger.opts = opts;
+    logger.levels = [];
+    logger.routes = [];
+
+    // gets prototype
+    util._extend(logger, this);
+    util._extend(logger, Logger.prototype);
+    
+    return logger;
 }
-util.inherits(Logger, events.EventEmitter);
+Logger.prototype = events.EventEmitter.prototype;
+Logger.constructor = Logger;
+
 Logger.prototype.send = function(name) {
     var that = this;
     return function () {
         var opts = {
-            args: arguments,
+            args: arguments.length ? argsToArray(arguments) : [''],
             name: name,
             time: new Date()
         };
@@ -35,7 +54,7 @@ Logger.prototype.send = function(name) {
                 });
             }
         });
-        return this;
+        return that;
     }
 };
 Logger.prototype.use = function(fn) {
@@ -43,18 +62,23 @@ Logger.prototype.use = function(fn) {
     return this;
 };
 Logger.prototype.add = function(name) {
+    if (Array.isArray(name)) {
+        this.levels.concat(name);
+        for (var i = name.length - 1; i >= 0; i--) {
+            this[name[i]] = this.send(name[i]);
+        }
+        return this;
+    }
     this.levels.push(name);
     this[name] = this.send(name);
     return this;
 };
 
 // module
-module.exports = new Logger().add('banana').add('info').add('warn').add('error')
+module.exports = new Logger().add('debug').add('info').add('warn').add('error')
     .use(stdout({
-        colors: ['yellow', 'cyan', 'magenta', 'red'],
-        timestamp: false
+        colors: ['cyan', 'blue', 'yellow', 'red']
     }));
-
 module.exports.custom = function (opts) {
     return new Logger(opts);
 }
@@ -96,7 +120,7 @@ function stdout (opts) {
             if (typeof runOtps.args[i] === 'object') {
                 runOtps.args[i] = util.inspect(runOtps.args[i]);
             }
-        };
+        }
         var logs = Array.prototype.slice.call(runOtps.args),
             logMessage = [text + logs[0]].concat(logs.slice(1));
         console.log.apply(console, logMessage);
@@ -109,4 +133,7 @@ function fileOut (opts) {
 // utils
 function fDate (time) {
     return '[' + moment(time).format('YYYYMMMDDTHH:mm:ss.SSSZ') + '] ';
+}
+function argsToArray (args) {
+    return Array.prototype.slice.call(args);
 }
