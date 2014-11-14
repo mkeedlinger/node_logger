@@ -102,7 +102,7 @@ function stdout (opts) {
             text;
 
         if (opts.namePrepend) {
-            if (color) {
+            if (color && this.opts.dev) {
                 name = '[' + chalk[color](name) + '] ';
             } else {
                 name = '[' + name + '] ';
@@ -121,8 +121,7 @@ function stdout (opts) {
                 runOtps.args[i] = util.inspect(runOtps.args[i]);
             }
         }
-        var logs = Array.prototype.slice.call(runOtps.args),
-            logMessage = [text + logs[0]].concat(logs.slice(1));
+        var logMessage = [text + runOtps.args[0]].concat(runOtps.args.slice(1));
         console.log.apply(console, logMessage);
     }
 }
